@@ -10,6 +10,7 @@ from nats.js.api import StreamConfig
 # Import your screens
 from first_screen import FirstScreen
 from second_screen import SecondScreen
+from third_screen import ThirdScreen
 
 class App(tk.Tk):
     def __init__(self):
@@ -32,6 +33,7 @@ class App(tk.Tk):
         self.screens = {
             "FirstScreen": FirstScreen,
             "SecondScreen": SecondScreen,
+            "ThirdScreen": ThirdScreen,
         }
         
         # Start asyncio loop in a separate thread
@@ -129,7 +131,26 @@ class App(tk.Tk):
         else:
             print("NATS not ready yet")
             return None
-    
+    def reset_screen(self):
+        """Reset the screen state for reuse"""
+        self.calibration_started = False
+        self.all_tests = {}
+        
+        # Clear UI elements
+        for widget in self.test_frame.winfo_children():
+            widget.destroy()
+        for widget in self.unselected_test_frame.winfo_children():
+            widget.destroy()
+        
+        # Reset test tracking
+        self.test_status = {}
+        self.test_labels = {}
+        self.test_state_labels = {}
+        
+        # Reset progress
+        self.progress_bar["value"] = 0
+        self.progress_label.config(text="Overall Progress: Waiting to start...")
+
     def show_screen(self, screen_name, **kwargs):
         """
         Switch to a specific screen by name
@@ -139,14 +160,39 @@ class App(tk.Tk):
             return False
             
         if self.current_screen:
+            # Remove event handlers for the current screen if it's ThirdScreen
+            if hasattr(self.current_screen, 'on_event_message'):
+                # Unregister any event handlers if necessary
+                pass
+            
             self.current_screen.pack_forget()
             
         screen_class = self.screens[screen_name]
         self.current_screen = screen_class(self, **kwargs)
         self.current_screen.pack(fill=tk.BOTH, expand=True)
         
+        # If the new screen is ThirdScreen, make sure it's properly initialized
+        if screen_name == "ThirdScreen":
+            # Allow the screen to be fully rendered before sending commands
+            self.after(100, lambda: self.ensure_third_screen_initialized())
+        
         print(f"Switched to {screen_name}")
         return True
+
+    def ensure_third_screen_initialized(self):
+        """
+        Ensure the ThirdScreen is properly initialized
+        """
+        if hasattr(self.current_screen, 'calibration_started') and not self.current_screen.calibration_started:
+            # Force the ThirdScreen to check for messages if it hasn't started yet
+            print("Ensuring ThirdScreen is initialized...")
+            
+            # If you have any pending messages that should be processed, handle them here
+            # For example, you might want to re-subscribe to event channels
+            
+            # You might also want to force a message check if there's a mechanism for that
+            # self.check_for_messages()
+
         
     def register_screen(self, screen_name, screen_class):
         """Register a new screen type"""

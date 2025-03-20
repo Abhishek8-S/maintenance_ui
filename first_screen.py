@@ -62,7 +62,7 @@ class FirstScreen(tk.Frame):
             timestamp = self.master.get_timestamp()
             self.log_message(f"[{timestamp}] RECEIVED: {json.dumps(message, indent=2)}")
 
-            if message.get("type") == "get_calibration_list":
+            if message.get("type") == "calibration_opened":
                 # messagebox.showinfo("Info", "Calibration completed successfully!")
                 # ✅ Switch to SecondScreen
                 self.master.show_screen("SecondScreen", event_data=message)

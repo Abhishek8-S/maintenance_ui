@@ -3,6 +3,10 @@ from tkinter import messagebox
 import uuid
 import json
 
+def get_selected_tests(checkbox_vars):
+    """Return the list of selected tests."""
+    return [test for test, var in checkbox_vars.items() if var.get()]
+
 class SecondScreen(tk.Frame):
     def __init__(self, master, event_data=None, **kwargs):
         super().__init__(master)
@@ -32,18 +36,19 @@ class SecondScreen(tk.Frame):
         # Create checkboxes for calibration list
         self.checkbox_vars = {}
         if self.event_data and "data" in self.event_data:
-            test_list = self.event_data["data"].get("calibration_test_list", [])
+            test_list = self.event_data["data"].get("calibration_list", [])
             for test in test_list:
+                calib_name = test.get("calib_name", "Unknown Test")  # Extract the calibration name
                 var = tk.BooleanVar()
                 checkbox = tk.Checkbutton(
                     self.inner_frame, 
-                    text=test, 
+                    text=calib_name,  # Use calib_name instead of the full dictionary
                     variable=var, 
                     anchor="w", 
                     justify="left"
                 )
                 checkbox.pack(fill="x", padx=10, pady=2)
-                self.checkbox_vars[test] = var
+                self.checkbox_vars[calib_name] = var  # Store calib_name instead of the full dictionary
 
         # Update canvas size dynamically
         self.inner_frame.bind("<Configure>", lambda e: self.canvas.config(scrollregion=self.canvas.bbox("all")))
@@ -54,7 +59,7 @@ class SecondScreen(tk.Frame):
 
     def on_next(self):
         """Handle next button click"""
-        self.selected_tests = [test for test, var in self.checkbox_vars.items() if var.get()]
+        self.selected_tests = get_selected_tests(self.checkbox_vars)
         if not self.selected_tests:
             messagebox.showwarning("Warning", "Please select at least one calibration test.")
             return
@@ -77,7 +82,6 @@ class SecondScreen(tk.Frame):
             "control.sv-maintenance.commands",
             command.get("data", {})
         )
-
         
         if full_command:
             print(f"Sent command: {json.dumps(full_command, indent=2)}")
@@ -91,19 +95,19 @@ class SecondScreen(tk.Frame):
         """Log messages to console or UI"""
         print(message)
 
-    def handle_event_message(self, message):
+    def on_event_message(self, message):
         """Handle received event message"""
         try:
-            # Log message for debugging
             timestamp = self.master.get_timestamp()
-            print(f"[{timestamp}] RECEIVED: {json.dumps(message, indent=2)}")
+            print(f"[{timestamp}] RECEIVED in SecondScreen: {json.dumps(message, indent=2)}")
 
             if message.get("type") == "tray_positioned_to_loading":
                 status = message.get("data", {}).get("status", "")
                 if status == "success":
                     print("Tray positioned successfully, showing popup...")
                     self.master.after(0, self.show_insert_slide_popup)
-
+                else:
+                    messagebox.showerror("Error", f"Failed to position tray: {status}")
         except Exception as e:
             print(f"Error handling event in SecondScreen: {e}")
 
@@ -112,6 +116,7 @@ class SecondScreen(tk.Frame):
         popup = tk.Toplevel(self)
         popup.title("Insert Slide")
         popup.geometry("400x200")
+        popup.grab_set()
 
         label = tk.Label(popup, text="Please insert the slide and press Next", font=("Arial", 14))
         label.pack(pady=20)
@@ -122,7 +127,4 @@ class SecondScreen(tk.Frame):
     def on_insert_slide_next(self, popup):
         """Handle next action after inserting slide"""
         popup.destroy()
-        # ✅ Example: Proceed to the next screen or action
-        # self.master.show_screen("ThirdScreen", selected_tests=self.selected_tests)
-        messagebox.showinfo("Info", "Slide inserted successfully. Proceeding...")
-
+        self.master.show_screen("ThirdScreen", selected_tests=self.selected_tests)
